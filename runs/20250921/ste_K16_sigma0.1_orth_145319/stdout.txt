@@ -1,0 +1,6 @@
+[010] rec=0.02512 angle=1.5589 ent=2.585 dead=1
+[020] rec=0.02512 angle=1.5549 ent=2.549 dead=0
+[030] rec=0.02513 angle=1.5535 ent=2.580 dead=0
+[040] rec=0.02512 angle=1.5484 ent=2.601 dead=0
+[050] rec=0.02512 angle=1.5612 ent=2.595 dead=0
+[060] rec=0.02511 angle=1.5555 ent=2.563 dead=0

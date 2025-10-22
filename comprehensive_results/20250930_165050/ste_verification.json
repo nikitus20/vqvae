@@ -1,0 +1,20 @@
+{
+  "autograd": {
+    "recon_mse": 3.1077278598572375,
+    "in_sub_dist": 2.419064778289321,
+    "usage_entropy": 2.751371004647197,
+    "dead_frac": 0.0
+  },
+  "manual": {
+    "recon_mse": 3.0934558522650955,
+    "in_sub_dist": 2.4053819908630323,
+    "usage_entropy": 2.7499393759587156,
+    "dead_frac": 0.0
+  },
+  "differences": {
+    "recon_mse": 0.014272007592142089,
+    "in_sub_dist": 0.013682787426288812,
+    "usage_entropy": 0.0014316286884814566,
+    "dead_frac": 0.0
+  }
+}
