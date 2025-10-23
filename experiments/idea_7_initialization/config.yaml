@@ -1,0 +1,45 @@
+# Linear Gaussian Experiment Configuration
+# Idea 7: R(D)-Optimal Codebook Initialization
+
+# ============================================================================
+# Data Generation
+# ============================================================================
+d: 64                     # Ambient dimension
+k: 8                      # Latent dimension (signal rank)
+sigma_noise: 0.1          # Noise standard deviation
+n_samples: 10000          # Number of training samples
+seed: 42                  # Random seed for reproducibility
+
+# ============================================================================
+# Model Architecture
+# ============================================================================
+codebook_size: 256        # Number of codewords (n = 2^8)
+                          # This gives rate R = log2(256)/8 = 1 bit/dimension
+
+# ============================================================================
+# Training Hyperparameters
+# ============================================================================
+batch_size: 128           # Mini-batch size
+lr: 0.001                 # Learning rate (Adam optimizer)
+beta: 0.25                # Commitment loss weight (from VQ-VAE paper)
+num_steps: 5000           # Total training steps
+eval_every: 50            # Evaluation frequency (in steps)
+
+# ============================================================================
+# Expected Theoretical Values (for validation)
+# ============================================================================
+# For the Linear Gaussian model with rate R = 1 bit/dim:
+#
+# Assuming σ_z² ≈ 1.0 (typical for normalized data):
+#   - R(D) theoretical bound: k × σ_z² × 2^(-2R) ≈ 8 × 1.0 × 0.25 = 2.0
+#   - Uniform init baseline: k × σ_z² ≈ 8.0 (no compression)
+#   - R(D) improvement: ~4× better initial distortion
+#
+# Dead codes:
+#   - Uniform init: Expected 100-150 dead codes (out of 256)
+#   - K-means init: Expected 10-30 dead codes
+#   - R(D) init: Expected 0-5 dead codes
+#
+# Convergence:
+#   - R(D) should converge 2-3× faster than uniform
+#   - Final performance should be similar for all methods

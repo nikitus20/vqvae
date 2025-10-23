@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+*.egg-info/
+dist/
+build/
 
 # Virtual Environment
 .venv/
@@ -27,7 +30,16 @@ Thumbs.db
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints/
 
 # Results and temporary files
 *.tmp
 *.bak
+
+# Experiment Results (optional - uncomment to track results in git)
+# results/
+
+# PyTest
+.pytest_cache/
+.coverage
+htmlcov/
