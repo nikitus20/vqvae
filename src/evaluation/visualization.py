@@ -77,7 +77,7 @@ def plot_training_curves(
     )
     axes[0, 0].set_xlabel('Training Step', fontsize=11)
     axes[0, 0].set_ylabel('Quantization Error (MSE)', fontsize=11)
-    axes[0, 0].set_title('Quantization Error: $\mathbb{E}[||z - \hat{z}||^2]$', fontsize=12)
+    axes[0, 0].set_title(r'Quantization Error: $\mathbb{E}[||z - \hat{z}||^2]$', fontsize=12)
     axes[0, 0].legend(fontsize=10, loc='best')
     axes[0, 0].grid(True, alpha=0.3)
     axes[0, 0].set_yscale('log')
@@ -99,14 +99,14 @@ def plot_training_curves(
     # Format Plot 3: Dead Codes
     axes[1, 0].set_xlabel('Training Step', fontsize=11)
     axes[1, 0].set_ylabel('Number of Dead Codes', fontsize=11)
-    axes[1, 0].set_title('Dead Codes (usage < $10^{-4}$)', fontsize=12)
+    axes[1, 0].set_title(r'Dead Codes (usage < $10^{-4}$)', fontsize=12)
     axes[1, 0].legend(fontsize=10, loc='best')
     axes[1, 0].grid(True, alpha=0.3)
 
     # Format Plot 4: Reconstruction Loss
     axes[1, 1].set_xlabel('Training Step', fontsize=11)
     axes[1, 1].set_ylabel('Reconstruction Loss (MSE)', fontsize=11)
-    axes[1, 1].set_title('Reconstruction Loss: $||x - \hat{x}||^2$', fontsize=12)
+    axes[1, 1].set_title(r'Reconstruction Loss: $||x - \hat{x}||^2$', fontsize=12)
     axes[1, 1].legend(fontsize=10, loc='best')
     axes[1, 1].grid(True, alpha=0.3)
     axes[1, 1].set_yscale('log')

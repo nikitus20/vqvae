@@ -1,5 +1,9 @@
 """Data generation modules for VQ-VAE experiments."""
 
-from .linear_gaussian import LinearGaussianDataset
+from .base import BaseDataset
+from .gaussian import GaussianDataset
 
-__all__ = ['LinearGaussianDataset']
+# For backward compatibility
+from .gaussian import GaussianDataset as LinearGaussianDataset
+
+__all__ = ['BaseDataset', 'GaussianDataset', 'LinearGaussianDataset']

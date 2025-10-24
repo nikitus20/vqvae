@@ -1,63 +1,64 @@
-"""Linear Gaussian VQ-VAE model with fixed PCA encoder/decoder."""
+"""Composable VQ-VAE model."""
 
 import torch
 import torch.nn as nn
-from typing import Dict, Optional
-from .quantizer import VectorQuantizer
+from typing import Dict
+from .base import BaseVQVAE
+from ..encoders.base import BaseEncoder
+from ..quantizers.base import BaseQuantizer
+from ..decoders.base import BaseDecoder
 
 
-class LinearGaussianVQVAE(nn.Module):
-    """VQ-VAE with fixed PCA encoder/decoder for Linear Gaussian experiments.
+class VQVAE(BaseVQVAE):
+    """Composable VQ-VAE model.
+
+    Combines encoder, quantizer, and decoder into a full VQ-VAE architecture.
+    Each component can be any implementation of the respective base class.
 
     Architecture:
-    1. Encoder: z = U_k^T @ x  [FIXED - optimal PCA solution]
-    2. Quantizer: ẑ = Q(z)     [TRAINABLE - learned codebook]
-    3. Decoder: x̂ = U_k @ ẑ    [FIXED - transpose of encoder]
-
-    For the Linear Gaussian model X = AY + W, the optimal encoder/decoder
-    is given by PCA: U_k = top k eigenvectors of data covariance.
-
-    Only the codebook is trained; encoder and decoder are fixed.
+        x → encoder → z → quantizer → z_q → decoder → x_recon
 
     Args:
-        d: Ambient dimension
-        k: Latent dimension
-        codebook_size: Number of codewords
-        U_k: (d, k) PCA eigenvectors (fixed encoder/decoder)
-        init_method: Codebook initialization ('uniform', 'kmeans', 'rd_gaussian')
-        init_data: Optional initialization data (for kmeans/rd_gaussian)
+        encoder: Encoder module (BaseEncoder)
+        quantizer: Quantizer module (BaseQuantizer)
+        decoder: Decoder module (BaseDecoder)
+
+    Example:
+        >>> # Create components
+        >>> encoder = PCAEncoder(U_k, trainable=False)
+        >>> quantizer = VectorQuantizer(k, n, init_codebook=codebook)
+        >>> decoder = PCADecoder(U_k, trainable=False)
+        >>> # Compose model
+        >>> model = VQVAE(encoder, quantizer, decoder)
     """
 
     def __init__(
         self,
-        d: int,
-        k: int,
-        codebook_size: int,
-        U_k: torch.Tensor,
-        init_method: str = 'uniform',
-        init_data: Optional[torch.Tensor] = None
+        encoder: BaseEncoder,
+        quantizer: BaseQuantizer,
+        decoder: BaseDecoder
     ):
         super().__init__()
 
-        self.d = d
-        self.k = k
-        self.codebook_size = codebook_size
+        # Validate dimensions match
+        assert encoder.latent_dim == quantizer.dim, \
+            f"Encoder latent_dim {encoder.latent_dim} != quantizer dim {quantizer.dim}"
+        assert quantizer.dim == decoder.latent_dim, \
+            f"Quantizer dim {quantizer.dim} != decoder latent_dim {decoder.latent_dim}"
 
-        # Fixed encoder/decoder (PCA solution)
-        # Register as buffers (not trained, but part of state_dict)
-        self.register_buffer('encoder_weight', U_k.T)  # (k, d) for z = U_k^T @ x
-        self.register_buffer('decoder_weight', U_k)    # (d, k) for x̂ = U_k @ ẑ
+        # Store components
+        self.encoder = encoder
+        self.quantizer = quantizer
+        self.decoder = decoder
 
-        # Trainable quantizer
-        self.quantizer = VectorQuantizer(
-            dim=k,
-            codebook_size=codebook_size,
-            init_method=init_method,
-            init_data=init_data
-        )
+        # Store dimensions
+        self.input_dim = encoder.input_dim
+        self.latent_dim = encoder.latent_dim
+        self.output_dim = decoder.output_dim
+        self.codebook_size = quantizer.codebook_size
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode: z = U_k^T @ x.
+        """Encode input to latent representation.
 
         Args:
             x: (B, d) input data
@@ -65,12 +66,10 @@ class LinearGaussianVQVAE(nn.Module):
         Returns:
             z: (B, k) latent codes
         """
-        # z = x @ U_k, which is equivalent to U_k^T @ x^T then transpose
-        z = x @ self.decoder_weight  # (B, d) @ (d, k) -> (B, k)
-        return z
+        return self.encoder(x)
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
-        """Decode: x̂ = U_k @ z.
+        """Decode latent codes to reconstruction.
 
         Args:
             z: (B, k) latent codes
@@ -78,9 +77,7 @@ class LinearGaussianVQVAE(nn.Module):
         Returns:
             x_recon: (B, d) reconstructed data
         """
-        # x̂ = z @ U_k^T, which is equivalent to U_k @ z^T then transpose
-        x_recon = z @ self.encoder_weight  # (B, k) @ (k, d) -> (B, d)
-        return x_recon
+        return self.decoder(z)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Full forward pass through VQ-VAE.
@@ -94,36 +91,38 @@ class LinearGaussianVQVAE(nn.Module):
                 - z: (B, k) encoder output
                 - z_q: (B, k) quantized latent codes
                 - indices: (B,) codebook indices
+                - (optional) additional quantizer-specific info
         """
         # Encode
-        z = self.encode(x)
+        z = self.encoder(x)
 
         # Quantize
-        z_q, indices = self.quantizer(z)
+        z_q, indices, quantizer_info = self.quantizer(z)
 
         # Decode
-        x_recon = self.decode(z_q)
+        x_recon = self.decoder(z_q)
 
-        return {
+        # Combine outputs
+        outputs = {
             'x_recon': x_recon,
             'z': z,
             'z_q': z_q,
-            'indices': indices
+            'indices': indices,
         }
 
-    def reconstruct(self, x: torch.Tensor) -> torch.Tensor:
-        """Convenience method for reconstruction.
+        # Add any additional quantizer info
+        outputs.update(quantizer_info)
 
-        Args:
-            x: (B, d) input data
-
-        Returns:
-            x_recon: (B, d) reconstructed data
-        """
-        return self.forward(x)['x_recon']
+        return outputs
 
     def __repr__(self) -> str:
         """String representation."""
-        return (f"LinearGaussianVQVAE(d={self.d}, k={self.k}, "
-                f"codebook_size={self.codebook_size}, "
-                f"init_method='{self.quantizer.init_method}')")
+        encoder_name = self.encoder.__class__.__name__
+        quantizer_name = self.quantizer.__class__.__name__
+        decoder_name = self.decoder.__class__.__name__
+
+        return (f"VQVAE(\n"
+                f"  encoder={encoder_name}(d={self.input_dim}, k={self.latent_dim}),\n"
+                f"  quantizer={quantizer_name}(k={self.latent_dim}, n={self.codebook_size}),\n"
+                f"  decoder={decoder_name}(k={self.latent_dim}, d={self.output_dim})\n"
+                f")")

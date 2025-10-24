@@ -1,75 +1,51 @@
-# VQ-VAE Research: R(D)-Optimal Initialization
+# VQ-VAE Research Framework
 
-A clean, modular research codebase for investigating **Vector Quantized Variational Autoencoders (VQ-VAE)** with focus on **rate-distortion optimal codebook initialization** (Idea 7).
+A modular research codebase for studying **Vector Quantized Variational Autoencoders (VQ-VAE)** and discrete representation learning.
 
-## 🎯 Research Question
+## Research Scope
 
-**Can rate-distortion theory guide better codebook initialization in VQ-VAE?**
+This framework enables systematic investigation of:
+- **Quantization methods**: Vector Quantization (VQ), Finite Scalar Quantization (FSQ), Gumbel-Softmax
+- **Gradient estimators**: Straight-Through Estimator (STE), rotation-based gradients
+- **Initialization strategies**: Uniform, k-means, rate-distortion optimal
+- **Architecture variations**: Linear encoders, convolutional networks, transformers
 
-We investigate this on the **Linear Gaussian model**, where:
-- Optimal encoder/decoder is known (PCA)
-- Theoretical distortion bounds exist (Shannon R(D) theory)
-- Results are interpretable and reproducible
+## Design Philosophy
 
-## 🔬 Key Hypothesis
-
-**Standard uniform initialization `[-1/n, 1/n]` is suboptimal** because:
-- Variance ~1/n² is too small compared to data variance
-- Leads to 100+ dead codes (out of 256)
-- Initial distortion is 4× worse than theoretical minimum
-
-**R(D)-optimal initialization** samples codebook from `N(0, σ_ẑ² I)` where:
+**Composable Components**: Mix and match different implementations
 ```
-σ_ẑ² = σ_z² × (1 - 2^(-2R))
+data → encoder → quantizer → decoder → reconstruction
 ```
-This matches the optimal reproduction variance from rate-distortion theory.
 
-## 📊 Expected Results
+Each component is:
+- **Independent**: Follows clear interface contracts
+- **Swappable**: Easy to replace or extend
+- **Controllable**: Can be frozen or trained selectively
 
-| Initialization | Initial Distortion | Dead Codes | Convergence Speed |
-|----------------|-------------------|------------|-------------------|
-| **Uniform** | ~8.0 (poor) | 100-150 | Slow (baseline) |
-| **K-Means** | ~2.5 (good) | 10-30 | Medium |
-| **R(D) Gaussian** | **~2.0 (optimal)** | **0-5** | **Fast (2-3× improvement)** |
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 vqvae/
 ├── src/
-│   ├── data/
-│   │   └── linear_gaussian.py      # Linear Gaussian data generator
-│   ├── models/
-│   │   ├── quantizer.py            # Vector quantizer with 3 init methods
-│   │   └── vqvae.py                # VQ-VAE model (fixed PCA encoder)
-│   ├── training/
-│   │   ├── losses.py               # VQ-VAE loss function
-│   │   └── trainer.py              # Training loop
-│   └── evaluation/
-│       ├── metrics.py              # Metrics tracking
-│       └── visualization.py        # Plotting utilities
-├── experiments/
-│   └── idea_7_initialization/
-│       ├── config.yaml             # Experiment configuration
-│       └── run_linear_gaussian.py  # Main experiment script
-├── tests/
-│   ├── test_data.py                # Data generation tests
-│   ├── test_quantizer.py           # Quantizer tests
-│   └── test_vqvae.py               # Integration tests
-├── results/                        # Experiment outputs (created at runtime)
-├── archive/                        # Previous implementation (for reference)
-├── docs/
-│   └── LEGACY_INSIGHTS.md          # Insights from previous work
-└── IMPLEMENTATION_GUIDE.md         # Detailed specifications
+│   ├── data/              # Dataset implementations
+│   ├── encoders/          # Encoder modules (PCA, learned linear, etc.)
+│   ├── decoders/          # Decoder modules
+│   ├── quantizers/        # Quantization methods (VQ, rotation, etc.)
+│   ├── initialization/    # Codebook initialization strategies
+│   ├── models/            # Composable VQ-VAE models
+│   ├── training/          # Training utilities and loss functions
+│   └── evaluation/        # Metrics and visualization
+├── requirements.txt       # Python dependencies
+└── README.md             # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
 ```bash
 # Clone repository
-git clone git@github.com:nikitus20/vqvae.git
+git clone https://github.com/nikitus20/vqvae.git
 cd vqvae
 
 # Create virtual environment
@@ -80,195 +56,129 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Run Experiment
-
-```bash
-# Run full experiment (compares 3 initialization methods)
-python experiments/idea_7_initialization/run_linear_gaussian.py
-```
-
-This will:
-1. Generate Linear Gaussian data (d=64, k=8, n=10000)
-2. Test 3 initialization methods: Uniform, K-Means, R(D) Gaussian
-3. Train for 5000 steps
-4. Save metrics to `results/idea_7_linear_gaussian/`
-5. Generate comparison plots
-
-### Run Tests
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run specific test file
-python tests/test_data.py
-python tests/test_quantizer.py
-python tests/test_vqvae.py
-```
-
-## 📈 Results
-
-After running the experiment, check:
-
-```
-results/idea_7_linear_gaussian/
-├── uniform/
-│   └── metrics.csv
-├── kmeans/
-│   └── metrics.csv
-├── rd_gaussian/
-│   └── metrics.csv
-└── plots/
-    ├── training_curves.png          # 4-panel comparison
-    └── utilization_comparison.png   # Init vs final metrics
-```
-
-### Example Output
-
-```
-======================================================================
-  SUMMARY COMPARISON
-======================================================================
-
-Method          Init Q.Err    Final Q.Err   Init Dead  Final Dead  Final Perp
-----------------------------------------------------------------------
-Uniform         8.234567      2.012345      125        23          234.56
-K-Means         2.567890      2.005678      18         3           251.23
-R(D) Gaussian   2.056789      2.003456      2          0           254.89
-```
-
-**Key Findings**:
-- ✅ R(D) init starts 4× closer to optimal
-- ✅ R(D) init has near-zero dead codes initially
-- ✅ R(D) init converges faster
-- ✅ All methods reach similar final performance
-
-## 🔧 Configuration
-
-Edit `experiments/idea_7_initialization/config.yaml`:
-
-```yaml
-# Data
-d: 64                    # Ambient dimension
-k: 8                     # Latent dimension
-sigma_noise: 0.1         # Noise level
-
-# Model
-codebook_size: 256       # 2^8 codes (R = 1 bit/dim)
-
-# Training
-num_steps: 5000          # Training steps
-lr: 0.001                # Learning rate
-beta: 0.25               # Commitment weight
-```
-
-## 🧪 Architecture Details
-
-### Linear Gaussian Model
+### Basic Usage
 
 ```python
-# Data generation
-X = A @ Y + W
-# where Y ~ N(0, Σ), A ∈ R^(d×k), W ~ N(0, σ²I)
+import torch
+from src.data import GaussianDataset
+from src.encoders import PCAEncoder
+from src.decoders import PCADecoder
+from src.quantizers import VectorQuantizer
+from src.models import VQVAE
+from src.initialization import rd_gaussian_init
 
-# VQ-VAE architecture
-z = U_k^T @ x          # Encoder (FIXED - PCA solution)
-ẑ = Q(z)               # Quantizer (TRAINED)
-x̂ = U_k @ ẑ            # Decoder (FIXED - transpose of encoder)
+# 1. Create dataset
+dataset = GaussianDataset(d=64, k=8, n_samples=10000)
+
+# 2. Create encoder & decoder
+encoder = PCAEncoder(dataset.U_k, trainable=False)
+decoder = PCADecoder(dataset.U_k, trainable=False)
+
+# 3. Initialize codebook
+init_data = dataset.get_initialization_batch(1000)
+codebook = rd_gaussian_init(codebook_size=256, dim=8, data=init_data)
+
+# 4. Create quantizer
+quantizer = VectorQuantizer(dim=8, codebook_size=256, init_codebook=codebook)
+
+# 5. Compose model
+model = VQVAE(encoder, quantizer, decoder)
+
+# 6. Use model
+x = torch.randn(32, 64)  # batch of data
+outputs = model(x)
+# outputs: {'x_recon', 'z', 'z_q', 'indices', ...}
 ```
 
-### Why Fixed Encoder/Decoder?
+## Extending the Framework
 
-For Linear Gaussian data:
-- **PCA is provably optimal** for linear encoding
-- **Only codebook needs training** (reduces variables)
-- **Results are interpretable** (compare to theory)
+### Adding a New Quantizer
 
-### Initialization Methods
+```python
+from src.quantizers.base import BaseQuantizer
 
-1. **Uniform**: `codebook ~ Uniform[-1/n, 1/n]`
-   - Standard practice
-   - Variance ~1/n² (too small!)
-
-2. **K-Means**: Cluster initialization batch
-   - Data-driven
-   - Good empirical performance
-
-3. **R(D) Gaussian**: `codebook ~ N(0, σ_ẑ² I)`
-   - Theory-driven
-   - Optimal variance from R(D) theory
-
-## 📚 Theoretical Background
-
-### Rate-Distortion Theory
-
-For Gaussian source `z ~ N(0, σ_z² I)` and codebook size `n`:
-
-**Rate**: `R = log₂(n) / k` bits per dimension
-
-**R(D) Bound**: Optimal distortion is `D* = k σ_z² × 2^(-2R)`
-
-**Optimal Variance**: `σ_ẑ² = σ_z² × (1 - 2^(-2R))`
-
-### Example Calculation
-
-With d=64, k=8, n=256, σ_z²=1.0:
-
-```
-R = log₂(256) / 8 = 1 bit/dim
-D* = 8 × 1.0 × 2^(-2) = 2.0
-σ_ẑ² = 1.0 × (1 - 0.25) = 0.75
+class MyQuantizer(BaseQuantizer):
+    def forward(self, z):
+        # Your quantization logic
+        z_q, indices, info = ...
+        return z_q, indices, info
 ```
 
-Standard uniform init: `σ² ≈ (1/256)²/3 ≈ 5×10⁻⁶` (1000× too small!)
+### Adding a New Dataset
 
-## 🔍 Code Quality
+```python
+from src.data.base import BaseDataset
 
-- **Clean architecture**: Modular separation of concerns
-- **Type hints**: Full type annotations
-- **Documentation**: Comprehensive docstrings
-- **Tests**: Unit + integration tests (pytest)
-- **Reproducible**: Fixed seeds, logged configs
-
-## 📖 References
-
-### Papers
-- van den Oord et al., "Neural Discrete Representation Learning" (VQ-VAE, 2017)
-- Razavi et al., "Generating Diverse High-Fidelity Images with VQ-VAE-2" (2019)
-- Shannon, "Coding Theorems for a Discrete Source with a Fidelity Criterion" (1959)
-
-### Previous Work
-- See `archive/` for earlier experimental code
-- See `docs/LEGACY_INSIGHTS.md` for key findings
-- See `IMPLEMENTATION_GUIDE.md` for detailed specifications
-
-## 🎓 Citation
-
-If you use this code in your research:
-
-```bibtex
-@misc{vqvae_rd_init_2025,
-  title={Rate-Distortion Optimal Initialization for VQ-VAE},
-  author={Nikita Karagodin},
-  year={2025},
-  url={https://github.com/nikitus20/vqvae}
-}
+class MyDataset(BaseDataset):
+    def get_dataloader(self, batch_size, shuffle=True):
+        # Return PyTorch DataLoader
+        ...
 ```
 
-## 🤝 Contributing
+### Adding a New Encoder/Decoder
 
-This is a research project. For questions or suggestions:
-1. Check `IMPLEMENTATION_GUIDE.md` for specifications
-2. Review tests in `tests/` for usage examples
-3. Open an issue on GitHub
+```python
+from src.encoders.base import BaseEncoder
 
-## 📝 License
+class MyEncoder(BaseEncoder):
+    def forward(self, x):
+        # x: (batch, d) -> z: (batch, k)
+        z = ...
+        return z
+```
+
+## Core Features
+
+- **Modular Design**: Swap components without changing other code
+- **Type Safety**: Abstract base classes ensure correct interfaces
+- **Flexibility**: Train or freeze any component
+- **Extensibility**: Add new methods by inheriting from base classes
+- **Clean Data Flow**: Explicit transformations at each stage
+
+## Current Implementations
+
+### Data
+- `GaussianDataset`: Linear Gaussian model (X = AY + W)
+
+### Encoders
+- `PCAEncoder`: Fixed PCA projection
+- `LearnedLinearEncoder`: Trainable linear encoder
+
+### Decoders
+- `PCADecoder`: Fixed PCA reconstruction
+- `LearnedLinearDecoder`: Trainable linear decoder
+
+### Quantizers
+- `VectorQuantizer`: Standard VQ with straight-through estimator
+- `RotationVectorQuantizer`: VQ with rotation-based gradients
+
+### Initialization
+- `uniform_init`: Uniform random initialization
+- `kmeans_init`: K-means clustering on data
+- `rd_gaussian_init`: Rate-distortion optimal (Gaussian sources)
+
+## Research Goals
+
+This framework is designed for:
+1. **Theoretical validation**: Test rate-distortion optimal initialization
+2. **Method comparison**: Benchmark different quantization approaches
+3. **Scalability studies**: Understand performance across codebook sizes
+4. **Real data experiments**: Extend to images, audio, etc.
+
+## Contributing
+
+This is an active research project. Contributions are welcome:
+1. Fork the repository
+2. Create a feature branch
+3. Implement your changes following the base class interfaces
+4. Submit a pull request
+
+## License
 
 MIT License - see LICENSE file for details
 
 ---
 
-**Status**: Active Research Project
-**Last Updated**: October 2025
-**Focus**: Linear Gaussian experiments (Idea 7)
-**Next Steps**: Extend to MNIST, add population dynamics analysis (Idea 1)
+**Author**: Nikita Karagodin
+**Status**: Active Development
+**Contact**: https://github.com/nikitus20/vqvae

@@ -1,6 +1,9 @@
 """VQ-VAE model components."""
 
-from .quantizer import VectorQuantizer
-from .vqvae import LinearGaussianVQVAE
+from .base import BaseVQVAE
+from .vqvae import VQVAE
 
-__all__ = ['VectorQuantizer', 'LinearGaussianVQVAE']
+# Legacy imports for backward compatibility
+from .legacy import LinearGaussianVQVAE
+
+__all__ = ['BaseVQVAE', 'VQVAE', 'LinearGaussianVQVAE']

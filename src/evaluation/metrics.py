@@ -25,9 +25,21 @@ class MetricsTracker:
             step: Training step number
             **kwargs: Metric name-value pairs
         """
+        # Get all keys that have been seen so far
+        all_keys = set(self.metrics.keys())
+        all_keys.update(kwargs.keys())
+        all_keys.discard('step')  # Handle step separately
+
+        # Add step
         self.metrics['step'].append(step)
-        for key, value in kwargs.items():
-            self.metrics[key].append(value)
+
+        # Add metrics, using None for missing values
+        for key in all_keys:
+            if key in kwargs:
+                self.metrics[key].append(kwargs[key])
+            else:
+                # Pad with None if this metric wasn't provided
+                self.metrics[key].append(None)
 
     def compute_utilization_metrics(self, indices: torch.Tensor) -> Dict[str, float]:
         """Compute codebook utilization metrics.
