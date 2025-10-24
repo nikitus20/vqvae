@@ -26,7 +26,7 @@ class PCADecoder(BaseDecoder):
         super().__init__(latent_dim=k, output_dim=d, trainable=trainable)
 
         # Register decoder matrix as buffer (not trained by default)
-        # decoder_weight = U_k for efficient batch multiplication
+        # Store U_k: (d, k), transpose in forward for x = z @ U_k^T
         self.register_buffer('decoder_weight', U_k)  # (d, k)
 
         # Set trainability

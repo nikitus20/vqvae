@@ -55,7 +55,7 @@ class VectorQuantizer(BaseQuantizer):
         Returns:
             z_q: (B, dim) quantized vectors (with straight-through gradient)
             indices: (B,) nearest codeword indices
-            info: Dictionary with additional info (empty for basic VQ)
+            info: Dictionary with 'z_q_hard' for correct loss computation
         """
         # Compute distances: ||z - e_i||² for all codebook entries
         distances = torch.cdist(z, self.codebook)  # (B, codebook_size)
@@ -63,21 +63,15 @@ class VectorQuantizer(BaseQuantizer):
         # Find nearest codeword indices
         indices = distances.argmin(dim=1)  # (B,)
 
-        # Lookup quantized values
+        # Lookup quantized values (hard quantization)
         z_q_hard = self.codebook[indices]  # (B, dim)
 
-        # Straight-Through Estimator:
+        # Straight-Through Estimator: always apply for consistency
         # Forward: use z_q_hard
-        # Backward: copy gradient from z_q to z (if z requires grad)
-        # AND preserve gradient to codebook
-        if z.requires_grad:
-            # Standard STE: copy gradients through
-            z_q = z + (z_q_hard - z).detach()
-        else:
-            # Fixed encoder case: just use z_q_hard to preserve codebook gradients
-            z_q = z_q_hard
+        # Backward: gradient flows to both z and codebook
+        z_q = z + (z_q_hard - z).detach()
 
-        return z_q, indices, {}
+        return z_q, indices, {'z_q_hard': z_q_hard}
 
     def get_codebook(self) -> torch.Tensor:
         """Get current codebook.

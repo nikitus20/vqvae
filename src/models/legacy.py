@@ -51,8 +51,9 @@ class LinearGaussianVQVAE(nn.Module):
 
         # Fixed encoder/decoder (PCA solution)
         # Register as buffers (not trained, but part of state_dict)
-        self.register_buffer('encoder_weight', U_k.T)  # (k, d) for z = U_k^T @ x
-        self.register_buffer('decoder_weight', U_k)    # (d, k) for x̂ = U_k @ ẑ
+        # Note: Store in natural orientation for matrix multiplication
+        self.register_buffer('encoder_weight', U_k)    # (d, k) for z = x @ U_k
+        self.register_buffer('decoder_weight', U_k.T)  # (k, d) for x̂ = z @ U_k^T
 
         # Create codebook using initialization method
         if init_method == 'uniform':
@@ -88,7 +89,7 @@ class LinearGaussianVQVAE(nn.Module):
             z: (B, k) latent codes
         """
         # z = x @ U_k, which is equivalent to U_k^T @ x^T then transpose
-        z = x @ self.decoder_weight  # (B, d) @ (d, k) -> (B, k)
+        z = x @ self.encoder_weight  # (B, d) @ (d, k) -> (B, k)
         return z
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
@@ -101,7 +102,7 @@ class LinearGaussianVQVAE(nn.Module):
             x_recon: (B, d) reconstructed data
         """
         # x̂ = z @ U_k^T, which is equivalent to U_k @ z^T then transpose
-        x_recon = z @ self.encoder_weight  # (B, k) @ (k, d) -> (B, d)
+        x_recon = z @ self.decoder_weight  # (B, k) @ (k, d) -> (B, d)
         return x_recon
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:

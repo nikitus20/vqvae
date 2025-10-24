@@ -26,8 +26,8 @@ class PCAEncoder(BaseEncoder):
         super().__init__(input_dim=d, latent_dim=k, trainable=trainable)
 
         # Register encoder matrix as buffer (not trained by default)
-        # encoder_weight = U_k^T for efficient batch multiplication
-        self.register_buffer('encoder_weight', U_k.T)  # (k, d)
+        # Store U_k naturally: (d, k) for z = x @ U_k
+        self.register_buffer('encoder_weight', U_k)  # (d, k)
 
         # Set trainability
         if not trainable:
@@ -43,8 +43,7 @@ class PCAEncoder(BaseEncoder):
             z: (B, k) latent codes
         """
         # z = x @ U_k, which is equivalent to U_k^T @ x^T then transpose
-        # Use decoder_weight buffer which is U_k
-        z = x @ self.encoder_weight.T  # (B, d) @ (d, k) -> (B, k)
+        z = x @ self.encoder_weight  # (B, d) @ (d, k) -> (B, k)
         return z
 
 

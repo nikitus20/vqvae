@@ -177,7 +177,7 @@ class RotationVectorQuantizer(BaseQuantizer):
 
         # Find nearest codes
         indices = distances_sq.argmin(dim=1)  # (B,)
-        q = self.codebook[indices]            # (B, k)
+        q = self.codebook[indices]            # (B, k) - this is z_q_hard
 
         # Apply rotation gradient estimator
         z_q = RotationEstimator.apply(z, q)
@@ -187,6 +187,7 @@ class RotationVectorQuantizer(BaseQuantizer):
         commitment_loss = distances.pow(2).mean()
 
         info = {
+            'z_q_hard': q,  # Hard quantization for correct loss computation
             'distances': distances,
             'commitment_loss': commitment_loss
         }

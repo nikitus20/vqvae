@@ -58,6 +58,7 @@ class Trainer:
             x_recon=outputs['x_recon'],
             z=outputs['z'],
             z_q=outputs['z_q'],
+            z_q_hard=outputs['z_q_hard'],
             beta=beta
         )
 
