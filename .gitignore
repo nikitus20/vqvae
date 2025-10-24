@@ -36,8 +36,13 @@ Thumbs.db
 *.tmp
 *.bak
 
-# Experiment Results (optional - uncomment to track results in git)
-# results/
+# Experiment Results
+results/
+experiments/*/results/
+*.png
+*.pdf
+*.csv
+*.json
 
 # PyTest
 .pytest_cache/

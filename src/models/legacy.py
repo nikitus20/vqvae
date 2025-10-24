@@ -1,7 +1,17 @@
 """Legacy VQ-VAE models for backward compatibility.
 
-This module contains the old LinearGaussianVQVAE implementation.
-New code should use the composable VQVAE with separate encoder/decoder components.
+⚠️  DEPRECATED: This module is maintained for backward compatibility only.
+    New code should use the composable VQVAE with separate encoder/decoder components:
+
+    from src.encoders import PCAEncoder
+    from src.decoders import PCADecoder
+    from src.quantizers import VectorQuantizer
+    from src.models import VQVAE
+
+    encoder = PCAEncoder(U_k, trainable=False)
+    decoder = PCADecoder(U_k, trainable=False)
+    quantizer = VectorQuantizer(k, n, init_codebook=codebook)
+    model = VQVAE(encoder, quantizer, decoder)
 """
 
 import torch
@@ -13,7 +23,10 @@ from ..quantizers import VectorQuantizer
 class LinearGaussianVQVAE(nn.Module):
     """VQ-VAE with fixed PCA encoder/decoder for Linear Gaussian experiments.
 
-    DEPRECATED: Use composable VQVAE with PCAEncoder, VectorQuantizer, and PCADecoder instead.
+    ⚠️  DEPRECATED: Use composable VQVAE with PCAEncoder, VectorQuantizer, and PCADecoder instead.
+
+    This class is maintained only for backward compatibility with old code.
+    It will be removed in a future version.
 
     Architecture:
     1. Encoder: z = U_k^T @ x  [FIXED - optimal PCA solution]
