@@ -1,4 +1,4 @@
-"""Rotation-based gradient estimator for vector quantization."""
+"""Projection-based gradient estimator for vector quantization."""
 
 import torch
 import torch.nn as nn
@@ -6,22 +6,17 @@ from typing import Optional, Tuple, Dict
 from .base import BaseQuantizer
 
 
-class RotationEstimator(torch.autograd.Function):
-    """Rotation-based gradient estimator for VQ.
+class ProjectionEstimator(torch.autograd.Function):
+    """Projection-based gradient estimator for VQ.
 
-    Applies a rotation matrix R that rotates normalized z to normalized q,
-    then scales by ||z||/||q|| to account for magnitude changes.
+    Projects gradient onto the direction from encoder output z to quantized code q.
 
     Math:
         Forward:  z_q = q
-        Backward: ∂L/∂z = (||z||/||q||) R^T ∂L/∂z_q
+        Backward: ∂L/∂z = (u^T g) u  where u = (q - z)/||q - z||, g = ∂L/∂z_q
 
-    Where R is computed via two Householder reflections:
-        e = z/||z||,  q_hat = q/||q||
-        r = (e + q_hat) / ||e + q_hat||
-        R = I - 2rr^T + 2q_hat e^T
-
-    Stop-gradient is applied to the rotation computation for STE-like behavior.
+    This is a rank-1 projection that enforces gradient flow only along the
+    quantization direction, potentially helping encoder outputs move toward codebook.
     """
 
     @staticmethod
@@ -32,40 +27,23 @@ class RotationEstimator(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> Tuple[torch.Tensor, None]:
         z, q = ctx.saved_tensors
-        eps = 1e-8
 
-        # Normalize vectors
-        z_norm = z.norm(dim=1, keepdim=True).clamp(min=eps)  # (B, 1)
-        q_norm = q.norm(dim=1, keepdim=True).clamp(min=eps)  # (B, 1)
-        e = z / z_norm  # (B, k)
-        q_hat = q / q_norm  # (B, k)
+        # Direction from z to q
+        v = q - z
+        norm = v.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        u = v / norm  # (B, k) unit direction
 
-        # Compute r = (e + q_hat) / ||e + q_hat||
-        r_unnorm = e + q_hat  # (B, k)
-        r_norm = r_unnorm.norm(dim=1, keepdim=True).clamp(min=eps)  # (B, 1)
-        r = r_unnorm / r_norm  # (B, k)
-
-        # Rotation matrix R = I - 2rr^T + 2q_hat e^T
-        # Apply R^T to gradient: R^T g = g - 2r(r^T g) + 2e(q_hat^T g)
-        g = grad_output  # (B, k)
-
-        r_dot_g = (r * g).sum(dim=1, keepdim=True)  # (B, 1)
-        qhat_dot_g = (q_hat * g).sum(dim=1, keepdim=True)  # (B, 1)
-
-        rotated_grad = g - 2 * r * r_dot_g + 2 * e * qhat_dot_g  # (B, k)
-
-        # Scale by ||z|| / ||q||
-        scale = z_norm / q_norm  # (B, 1)
-        grad_z = scale * rotated_grad  # (B, k)
+        # Project gradient onto u: grad_z = (u^T g) u
+        proj = (grad_output * u).sum(dim=1, keepdim=True)  # (B, 1)
+        grad_z = proj * u  # (B, k)
 
         return grad_z, None
 
 
-class RotationVectorQuantizer(BaseQuantizer):
-    """Vector quantizer using rotation gradient estimator.
+class ProjectionVectorQuantizer(BaseQuantizer):
+    """Vector quantizer using projection gradient estimator.
 
-    Uses rotation matrix to transform gradients, accounting for both direction
-    and magnitude changes during quantization.
+    Projects gradients onto the direction from encoder output to quantized code.
 
     Args:
         dim: Latent dimension (k)
@@ -95,7 +73,7 @@ class RotationVectorQuantizer(BaseQuantizer):
     def forward(
         self, z: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
-        """Quantize with rotation gradient estimator.
+        """Quantize with projection gradient estimator.
 
         Args:
             z: (B, k) encoder outputs
@@ -113,8 +91,8 @@ class RotationVectorQuantizer(BaseQuantizer):
         indices = dist_sq.argmin(dim=1)  # (B,)
         q = self.codebook[indices]       # (B, k)
 
-        # Apply rotation estimator
-        z_q = RotationEstimator.apply(z, q)
+        # Apply projection estimator
+        z_q = ProjectionEstimator.apply(z, q)
 
         # Metrics
         distances = (z - q).norm(dim=1)
